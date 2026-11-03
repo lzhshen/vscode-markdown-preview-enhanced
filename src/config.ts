@@ -30,6 +30,7 @@ type VSCodeMPEConfigKey =
   | 'automaticallyShowPreviewOfMarkdownBeingEdited'
   | 'configPath'
   | 'enableImageLightbox'
+  | 'enableMermaidZoom'
   | 'enablePreviewContextMenu'
   | 'enablePreviewScripts'
   | 'exportColorScheme'

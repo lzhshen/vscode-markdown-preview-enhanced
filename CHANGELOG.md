@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Features
+
+- **Zoom and pan mermaid diagrams in the preview** — hold Ctrl/Cmd and scroll (or pinch on a trackpad) over a mermaid diagram to zoom around the cursor (10 %–1000 %), and drag to pan; a plain wheel still scrolls the page, and outside a diagram Ctrl/Cmd + wheel still zooms the whole preview. A toolbar appears on hover with zoom out / percentage (click to reset to 100 %) / zoom in / fit / fullscreen; double-clicking empty space also resets. The fullscreen view covers the preview panel and supports `+` `-` `0` `F`, the arrow keys and Escape. A drag of more than 4 px never triggers links inside the diagram, the diagram keeps its height so the page layout and scroll sync are unchanged, and each diagram keeps its view while you edit. Toggle via the new `markdown-preview-enhanced.enableMermaidZoom` setting (default `true`), or keep a single diagram static by opening its block with ` ```mermaid {data-zoom=false} `. Exports are not affected.
+
 ## [0.8.40] - 2026-10-09
 
 ### Picked up from crossnote 0.9.42

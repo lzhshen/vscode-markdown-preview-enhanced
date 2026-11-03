@@ -1,0 +1,184 @@
+/* Zoom & pan for mermaid diagrams in the preview (see mermaid-zoom.js) */
+.mpe-mz {
+  position: relative;
+  --mpe-mz-fg: #333;
+  --mpe-mz-toolbar-bg: rgba(255, 255, 255, 0.94);
+  --mpe-mz-border: rgba(0, 0, 0, 0.15);
+  --mpe-mz-hover: rgba(0, 0, 0, 0.07);
+  --mpe-mz-focus: #0e639c;
+}
+
+.mpe-mz-dark,
+.mpe-mz-dark .mpe-mz {
+  --mpe-mz-fg: #d4d4d4;
+  --mpe-mz-toolbar-bg: rgba(37, 37, 38, 0.94);
+  --mpe-mz-border: rgba(255, 255, 255, 0.18);
+  --mpe-mz-hover: rgba(255, 255, 255, 0.1);
+  --mpe-mz-focus: #3794ff;
+}
+
+.mpe-mz-viewport {
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  border-radius: 6px;
+  outline: 1px solid transparent;
+  transition: outline-color 0.15s;
+}
+
+.mpe-mz:hover > .mpe-mz-viewport,
+.mpe-mz:focus-within > .mpe-mz-viewport {
+  outline-color: var(--mpe-mz-border);
+}
+
+.mpe-mz-viewport.mpe-mz-dragging {
+  cursor: grabbing;
+}
+
+.mpe-mz-stage {
+  transform-origin: 0 0;
+}
+
+.mpe-mz-stage.mpe-mz-animating {
+  transition: transform 0.18s ease-out;
+}
+
+body.mpe-mz-noselect,
+body.mpe-mz-noselect * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+.mpe-mz-toolbar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--mpe-mz-toolbar-bg);
+  border: 1px solid var(--mpe-mz-border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  opacity: 0;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+
+.mpe-mz:hover > .mpe-mz-toolbar,
+.mpe-mz:focus-within > .mpe-mz-toolbar {
+  opacity: 1;
+}
+
+.mpe-mz-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--mpe-mz-fg);
+  cursor: pointer;
+  font: 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.mpe-mz-toolbar button:hover {
+  background: var(--mpe-mz-hover);
+}
+
+.mpe-mz-toolbar button:focus-visible {
+  outline: 2px solid var(--mpe-mz-focus);
+  outline-offset: -2px;
+}
+
+.mpe-mz-toolbar .mpe-mz-pct {
+  min-width: 46px;
+}
+
+.mpe-mz-toolbar .mpe-mz-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 3px;
+  background: var(--mpe-mz-border);
+}
+
+.mpe-mz-toolbar svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mpe-mz-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.55);
+  animation: mpe-mz-fade 0.15s ease-out;
+}
+
+.mpe-mz-overlay.mpe-mz-dark {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+@keyframes mpe-mz-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.mpe-mz-overlay .mpe-mz-frame {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.mpe-mz-overlay .mpe-mz-viewport {
+  flex: 1;
+  border-radius: 8px;
+  outline-color: var(--mpe-mz-border);
+}
+
+.mpe-mz-overlay .mpe-mz-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+}
+
+.mpe-mz-overlay .mpe-mz-stage svg {
+  display: block;
+}
+
+.mpe-mz-overlay .mpe-mz-toolbar {
+  top: 12px;
+  right: 12px;
+  opacity: 1;
+}
+
+.mpe-mz-hint {
+  margin-top: 10px;
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+  opacity: 0.85;
+}
+
+.mpe-mz-hint kbd {
+  padding: 1px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 3px;
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+}

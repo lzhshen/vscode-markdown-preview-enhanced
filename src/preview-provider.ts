@@ -803,6 +803,23 @@ export class PreviewProvider {
         );
         head = `<link rel="stylesheet" href="${lightboxCssUri}"><script defer src="${lightboxJsUri}"></script>`;
       }
+      if (getMPEConfig<boolean>('enableMermaidZoom') ?? true) {
+        const mermaidZoomCssUri = previewPanel.webview.asWebviewUri(
+          vscode.Uri.joinPath(
+            this.context.extensionUri,
+            'media',
+            'mermaid-zoom.css',
+          ),
+        );
+        const mermaidZoomJsUri = previewPanel.webview.asWebviewUri(
+          vscode.Uri.joinPath(
+            this.context.extensionUri,
+            'media',
+            'mermaid-zoom.js',
+          ),
+        );
+        head += `<link rel="stylesheet" href="${mermaidZoomCssUri}"><script defer src="${mermaidZoomJsUri}"></script>`;
+      }
 
       const html = await engine.generateHTMLTemplateForPreview({
         inputString,

@@ -866,6 +866,11 @@
           "default": true,
           "type": "boolean"
         },
+        "markdown-preview-enhanced.enableMermaidZoom": {
+          "description": "%markdown-preview-enhanced.enableMermaidZoom.description%",
+          "default": true,
+          "type": "boolean"
+        },
         "markdown-preview-enhanced.aiTranslationProvider": {
           "description": "%markdown-preview-enhanced.aiTranslationProvider.description%",
           "default": "",
