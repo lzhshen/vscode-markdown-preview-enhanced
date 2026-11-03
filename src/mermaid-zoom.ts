@@ -8,6 +8,15 @@ import * as vscode from 'vscode';
  */
 let active = false;
 let maximizedGroup = false;
+// Zen mode still shows the tab bar and, in native fullscreen, the custom
+// title bar; both can only be hidden through settings. Apply them for the
+// lifetime of the overlay and put the user's own values back afterwards
+// (including "not set").
+const FULLSCREEN_SETTINGS: [section: string, key: string, value: string][] = [
+  ['zenMode', 'showTabs', 'none'],
+  ['window', 'customTitleBarVisibility', 'windowed'],
+];
+let savedSettings: [section: string, key: string, value: unknown][] = [];
 
 async function run(command: string) {
   try {
@@ -27,6 +36,41 @@ function focusPanel(panel: vscode.WebviewPanel) {
   }
 }
 
+async function applyFullscreenSettings() {
+  for (const [section, key, value] of FULLSCREEN_SETTINGS) {
+    const config = vscode.workspace.getConfiguration(section);
+    const inspected = config.inspect(key);
+    if (
+      config.get(key) === value ||
+      // A workspace value would override ours; leave it alone.
+      inspected?.workspaceValue !== undefined ||
+      inspected?.workspaceFolderValue !== undefined
+    ) {
+      continue;
+    }
+    try {
+      await config.update(key, value, vscode.ConfigurationTarget.Global);
+      savedSettings.push([section, key, inspected?.globalValue]);
+    } catch (error) {
+      console.error(`[mermaid-zoom] setting ${section}.${key} failed`, error);
+    }
+  }
+}
+
+async function restoreFullscreenSettings() {
+  const saved = savedSettings;
+  savedSettings = [];
+  for (const [section, key, value] of saved) {
+    try {
+      await vscode.workspace
+        .getConfiguration(section)
+        .update(key, value, vscode.ConfigurationTarget.Global);
+    } catch (error) {
+      console.error(`[mermaid-zoom] restoring ${section}.${key} failed`, error);
+    }
+  }
+}
+
 export async function setMermaidScreenFullscreen(
   enter: unknown,
   panel?: vscode.WebviewPanel,
@@ -40,6 +84,7 @@ export async function setMermaidScreenFullscreen(
     if (maximizedGroup) {
       await run('workbench.action.toggleMaximizeEditorGroup');
     }
+    await applyFullscreenSettings();
     await run('workbench.action.toggleZenMode');
     // Zen mode centers a lone editor at a reading width; the diagram should
     // use the whole screen. Exiting zen mode restores the centered layout.
@@ -60,5 +105,6 @@ export async function setMermaidScreenFullscreen(
       }
       await run('workbench.action.toggleMaximizeEditorGroup');
     }
+    await restoreFullscreenSettings();
   }
 }

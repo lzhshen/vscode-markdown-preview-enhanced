@@ -486,6 +486,7 @@
     function close() {
       window.removeEventListener('keydown', onKey, true);
       resizeObserver.disconnect();
+      document.documentElement.classList.remove('mpe-mz-locked');
       overlay.remove();
       activeOverlay = null;
       setScreenFullscreen(false);
@@ -510,6 +511,8 @@
     overlay.appendChild(frame);
     overlay.appendChild(hint);
     document.body.appendChild(overlay);
+    // Hide the page scrollbar so the canvas reaches the right edge.
+    document.documentElement.classList.add('mpe-mz-locked');
     activeOverlay = overlay;
 
     pz = createPanZoom(vp, stage, {

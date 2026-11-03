@@ -118,19 +118,17 @@ body.mpe-mz-noselect * {
   stroke-linejoin: round;
 }
 
+html.mpe-mz-locked {
+  overflow: hidden;
+}
+
 .mpe-mz-overlay {
   position: fixed;
   inset: 0;
   z-index: 100000;
   display: flex;
   flex-direction: column;
-  padding: 24px;
-  background: rgba(0, 0, 0, 0.55);
   animation: mpe-mz-fade 0.15s ease-out;
-}
-
-.mpe-mz-overlay.mpe-mz-dark {
-  background: rgba(0, 0, 0, 0.7);
 }
 
 @keyframes mpe-mz-fade {
@@ -147,8 +145,7 @@ body.mpe-mz-noselect * {
 
 .mpe-mz-overlay .mpe-mz-viewport {
   flex: 1;
-  border-radius: 8px;
-  outline-color: var(--mpe-mz-border);
+  outline: none;
 }
 
 .mpe-mz-overlay .mpe-mz-stage {
@@ -168,12 +165,28 @@ body.mpe-mz-noselect * {
   opacity: 1;
 }
 
+/* Shown briefly on open so the canvas is left to the diagram alone. */
 .mpe-mz-hint {
-  margin-top: 10px;
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.72);
   color: #fff;
   font-size: 12px;
   text-align: center;
-  opacity: 0.85;
+  pointer-events: none;
+  animation: mpe-mz-hint-out 0.4s ease-in 3s forwards;
+}
+
+@keyframes mpe-mz-hint-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
 }
 
 .mpe-mz-hint kbd {
