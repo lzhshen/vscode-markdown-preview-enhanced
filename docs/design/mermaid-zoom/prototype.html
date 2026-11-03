@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mermaid 缩放原型</title>
+<style>
+:root {
+  --bg: #f3f3f3; --panel: #ffffff; --fg: #333333; --muted: #6a737d; --border: #d0d7de;
+  --toolbar-bg: rgba(255,255,255,.94); --hover: rgba(0,0,0,.07); --accent: #0e639c;
+  --mask: rgba(0,0,0,.55); --code: #f6f8fa; --toast-bg: #24292f; --toast-fg: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #181818; --panel: #1f1f1f; --fg: #d4d4d4; --muted: #9da5b4; --border: #3c3c3c;
+    --toolbar-bg: rgba(37,37,38,.94); --hover: rgba(255,255,255,.1); --accent: #3794ff;
+    --mask: rgba(0,0,0,.7); --code: #252526; --toast-bg: #e6e6e6; --toast-fg: #1f1f1f;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #181818; --panel: #1f1f1f; --fg: #d4d4d4; --muted: #9da5b4; --border: #3c3c3c;
+  --toolbar-bg: rgba(37,37,38,.94); --hover: rgba(255,255,255,.1); --accent: #3794ff;
+  --mask: rgba(0,0,0,.7); --code: #252526; --toast-bg: #e6e6e6; --toast-fg: #1f1f1f;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; display: flex; flex-direction: column; }
+header { display: flex; align-items: center; gap: 16px; padding: 8px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+header h1 { font-size: 14px; margin: 0; font-weight: 600; }
+header label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; cursor: pointer; }
+header code { font-size: 12px; }
+main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); min-height: 0; }
+#editor { width: 100%; height: 100%; resize: none; border: 0; border-right: 1px solid var(--border); padding: 16px; background: var(--code); color: var(--fg); font: 13px/1.55 ui-monospace, Menlo, monospace; outline: none; }
+#preview { overflow: auto; background: var(--panel); padding: 16px 32px 64px; }
+#preview h1 { font-size: 1.8em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+#preview h2 { font-size: 1.35em; margin-top: 1.6em; }
+#preview p { margin: .6em 0; }
+.mermaid-error { color: #d73a49; white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 12px; }
+.mermaid-static svg { display: block; margin: 0 auto; }
+@media (max-width: 800px) {
+  main { grid-template-columns: 1fr; grid-template-rows: 40% 60%; }
+  #editor { border-right: 0; border-bottom: 1px solid var(--border); }
+  #preview { padding: 16px; }
+}
+
+/* ---- 缩放组件 ---- */
+.mz-wrap { position: relative; margin: 16px 0; }
+.mz-viewport { position: relative; overflow: hidden; cursor: grab; border: 1px solid transparent; border-radius: 6px; transition: border-color .15s; }
+.mz-wrap:hover .mz-viewport, .mz-wrap:focus-within .mz-viewport { border-color: var(--border); }
+.mz-viewport.dragging { cursor: grabbing; }
+.mz-stage { transform-origin: 0 0; will-change: transform; }
+.mz-stage.animating { transition: transform .18s ease-out; }
+.mz-stage svg { display: block; margin: 0 auto; }
+body.mz-noselect, body.mz-noselect * { user-select: none !important; -webkit-user-select: none !important; }
+
+.mz-toolbar { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; align-items: center; gap: 2px; padding: 3px; background: var(--toolbar-bg); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.12); opacity: 0; transition: opacity .15s; }
+.mz-wrap:hover .mz-toolbar, .mz-wrap:focus-within .mz-toolbar { opacity: 1; }
+.mz-toolbar button { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 26px; padding: 0 4px; border: 0; border-radius: 4px; background: transparent; color: var(--fg); cursor: pointer; font: 12px/1 ui-monospace, Menlo, monospace; }
+.mz-toolbar button:hover { background: var(--hover); }
+.mz-toolbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.mz-toolbar .mz-pct { min-width: 46px; }
+.mz-toolbar .mz-sep { width: 1px; height: 16px; background: var(--border); margin: 0 3px; }
+.mz-toolbar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+.mz-overlay { position: fixed; inset: 0; z-index: 100; background: var(--mask); display: flex; flex-direction: column; padding: 24px; animation: mz-fade .15s ease-out; }
+@keyframes mz-fade { from { opacity: 0; } }
+.mz-overlay .mz-wrap { flex: 1; margin: 0; display: flex; min-height: 0; }
+.mz-overlay .mz-viewport { flex: 1; background: var(--panel); border-color: var(--border); border-radius: 8px; }
+.mz-overlay .mz-stage { position: absolute; top: 0; left: 0; width: max-content; }
+.mz-overlay .mz-toolbar { opacity: 1; top: 12px; right: 12px; }
+.mz-hint { margin-top: 10px; text-align: center; color: #fff; font-size: 12px; opacity: .85; }
+.mz-hint kbd { font: 11px ui-monospace, monospace; padding: 1px 5px; border: 1px solid rgba(255,255,255,.4); border-radius: 3px; }
+
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-fg); padding: 8px 14px; border-radius: 6px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 200; }
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mermaid 缩放 / 拖拽原型</h1>
+  <label><input type="checkbox" id="enable" checked> <code>enableMermaidZoom</code></label>
+  <span style="color:var(--muted);font-size:12px">左边是源码（可编辑，模拟边写边预览），右边是预览</span>
+</header>
+<main>
+<textarea id="editor" spellcheck="false"># Mermaid 缩放 / 拖拽
+
+把鼠标移到图上，右上角会出现工具栏。
+按住 ⌘/Ctrl 滚动鼠标滚轮（或用触控板双指捏合）缩放，直接拖拽平移，双击空白处恢复 100%。
+不按修饰键时滚轮照常滚动页面。
+
+试着把下面这张图放大、拖到别处，然后在左边改一下它的源码：图会重新渲染，视图保持不变。
+
+## 渲染管线（节点「缩放层」可点击）
+
+```mermaid
+flowchart TD
+  U[用户输入] --> E[VSCode 编辑器]
+  E -->|onDidChangeTextDocument| X[扩展宿主]
+  X -->|postMessage| W[Webview 预览]
+  W --> C[crossnote 解析 Markdown]
+  C --> M[Mermaid]
+  C --> P[PlantUML]
+  C --> G[GraphViz]
+  C --> K[KaTeX / MathJax]
+  M --> S[SVG]
+  P --> S2[SVG]
+  G --> S3[SVG]
+  S --> Z[缩放层 viewport/stage]
+  Z --> T1[工具栏]
+  Z --> T2[滚轮 / 捏合]
+  Z --> T3[拖拽阈值 4px]
+  Z --> T4[全屏浮层]
+  click Z call demoClick()
+```
+
+## 时序图
+
+```mermaid
+sequenceDiagram
+  participant 用户
+  participant 预览
+  participant 控制器
+  用户->>预览: ⌘ + 滚轮
+  预览->>控制器: zoomAt(factor, 光标位置)
+  控制器-->>预览: transform: translate() scale()
+  用户->>预览: 按下并移动 > 4px
+  预览->>控制器: 开始拖拽，吞掉后续 click
+  用户->>预览: 编辑源码
+  预览->>控制器: 重渲染后按序号恢复状态
+```
+
+## 单图关闭：{zoom=false}
+
+```mermaid {zoom=false}
+flowchart LR
+  A[这张图写了 zoom=false] --> B[保持静态，与现在完全一致]
+```
+
+下面是一段填充文字，用来验证不按修饰键时，滚轮在图上照常滚动页面。
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+
+Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+</textarea>
+<div id="preview"></div>
+</main>
+<div id="toast" role="status"></div>
+
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+
+const isDark = document.documentElement.dataset.theme === "dark" ||
+  (document.documentElement.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+mermaid.initialize({ startOnLoad: false, theme: isDark ? "dark" : "default", securityLevel: "loose" });
+
+const toastEl = document.getElementById("toast");
+let toastTimer;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1800);
+}
+window.demoClick = (id) => toast(`点击了节点 ${id}：单击仍会触发 Mermaid 的 click 回调`);
+
+// ---------- 通用缩放控制器（与图表类型无关） ----------
+const MIN_SCALE = 0.1, MAX_SCALE = 10, STEP = 1.2, DRAG_THRESHOLD = 4, PAN_STEP = 50;
+const clampScale = (s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+
+class PanZoom {
+  constructor(viewport, stage, { state, wheelNeedsModifier = true, onChange = () => {} } = {}) {
+    this.vp = viewport;
+    this.stage = stage;
+    this.s = state?.s ?? 1;
+    this.x = state?.x ?? 0;
+    this.y = state?.y ?? 0;
+    this.wheelNeedsModifier = wheelNeedsModifier;
+    this.onChange = onChange;
+    this.bind();
+    this.apply(false);
+  }
+
+  apply(animate) {
+    this.stage.classList.toggle("animating", !!animate);
+    this.stage.style.transform = `translate(${this.x}px, ${this.y}px) scale(${this.s})`;
+    this.onChange({ s: this.s, x: this.x, y: this.y });
+  }
+
+  zoomAt(factor, px, py, animate) {
+    const ns = clampScale(this.s * factor);
+    const k = ns / this.s;
+    this.x = px - (px - this.x) * k;
+    this.y = py - (py - this.y) * k;
+    this.s = ns;
+    this.apply(animate);
+  }
+
+  zoomCenter(factor) {
+    const r = this.vp.getBoundingClientRect();
+    this.zoomAt(factor, r.width / 2, r.height / 2, true);
+  }
+
+  reset() {
+    this.s = 1; this.x = 0; this.y = 0;
+    this.apply(true);
+  }
+
+  fit(animate = true) {
+    const svg = this.stage.querySelector("svg");
+    const vr = this.vp.getBoundingClientRect();
+    const r = svg.getBoundingClientRect();
+    // 换算回 scale=1、无位移时 svg 在 stage 中的位置和尺寸
+    const left0 = (r.left - vr.left - this.x) / this.s;
+    const top0 = (r.top - vr.top - this.y) / this.s;
+    const w0 = r.width / this.s, h0 = r.height / this.s;
+    const pad = 16;
+    const ns = clampScale(Math.min((vr.width - 2 * pad) / w0, (vr.height - 2 * pad) / h0));
+    this.s = ns;
+    this.x = (vr.width - w0 * ns) / 2 - left0 * ns;
+    this.y = (vr.height - h0 * ns) / 2 - top0 * ns;
+    this.apply(animate);
+  }
+
+  pan(dx, dy) {
+    this.x += dx; this.y += dy;
+    this.apply(true);
+  }
+
+  bind() {
+    this.vp.addEventListener("wheel", (e) => {
+      if (this.wheelNeedsModifier && !(e.ctrlKey || e.metaKey)) return; // 照常滚动页面
+      e.preventDefault();
+      const r = this.vp.getBoundingClientRect();
+      const delta = Math.max(-60, Math.min(60, e.deltaY * (e.deltaMode === 1 ? 16 : 1)));
+      this.zoomAt(Math.exp(-delta * 0.01), e.clientX - r.left, e.clientY - r.top, false);
+    }, { passive: false });
+
+    let start = null, dragging = false, suppressClick = false;
+    this.vp.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      start = { cx: e.clientX, cy: e.clientY, x: this.x, y: this.y, id: e.pointerId };
+      dragging = false;
+    });
+    this.vp.addEventListener("pointermove", (e) => {
+      if (!start || e.pointerId !== start.id) return;
+      const dx = e.clientX - start.cx, dy = e.clientY - start.cy;
+      if (!dragging) {
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+        dragging = true;
+        this.vp.setPointerCapture(e.pointerId);
+        this.vp.classList.add("dragging");
+        document.body.classList.add("mz-noselect");
+        getSelection()?.removeAllRanges();
+      }
+      this.x = start.x + dx;
+      this.y = start.y + dy;
+      this.apply(false);
+    });
+    const end = () => {
+      if (dragging) {
+        suppressClick = true;
+        setTimeout(() => { suppressClick = false; }, 0);
+        this.vp.classList.remove("dragging");
+        document.body.classList.remove("mz-noselect");
+      }
+      start = null;
+      dragging = false;
+    };
+    this.vp.addEventListener("pointerup", end);
+    this.vp.addEventListener("pointercancel", end);
+    // 拖拽结束后的那次 click 不传给节点
+    this.vp.addEventListener("click", (e) => {
+      if (suppressClick) { e.stopPropagation(); e.preventDefault(); }
+    }, true);
+
+    this.vp.addEventListener("dblclick", (e) => {
+      if (e.target.closest(".node, .edgeLabel, .actor, .messageText, a")) return;
+      this.reset();
+    });
+  }
+}
+
+// ---------- 工具栏 ----------
+const ICONS = {
+  minus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>',
+  plus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg>',
+  fit: '<svg viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
+  full: '<svg viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/></svg>',
+  close: '<svg viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></svg>',
+};
+
+function button(icon, label, onClick, cls = "") {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = cls;
+  b.innerHTML = icon;
+  b.title = label;
+  b.setAttribute("aria-label", label);
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function buildToolbar(getPz, { onFullscreen, onClose }) {
+  const bar = document.createElement("div");
+  bar.className = "mz-toolbar";
+  bar.setAttribute("role", "toolbar");
+  bar.setAttribute("aria-label", "图表缩放");
+  const pct = button("100%", "重置为 100%（双击空白处同效）", () => getPz().reset(), "mz-pct");
+  bar.append(
+    button(ICONS.minus, "缩小", () => getPz().zoomCenter(1 / STEP)),
+    pct,
+    button(ICONS.plus, "放大（也可 ⌘/Ctrl + 滚轮）", () => getPz().zoomCenter(STEP)),
+    Object.assign(document.createElement("span"), { className: "mz-sep" }),
+    button(ICONS.fit, "适应容器", () => getPz().fit()),
+  );
+  if (onFullscreen) bar.append(button(ICONS.full, "全屏查看", onFullscreen));
+  if (onClose) bar.append(button(ICONS.close, "关闭（Esc）", onClose));
+  return { bar, setPct: (s) => { pct.textContent = Math.round(s * 100) + "%"; } };
+}
+
+// ---------- 行内 ----------
+const viewStates = new Map(); // 第 N 个 mermaid 图 -> {s, x, y}，跨重渲染保留
+
+function mountInline(container, index) {
+  container.className = "mz-wrap";
+  const vp = document.createElement("div");
+  vp.className = "mz-viewport";
+  const stage = document.createElement("div");
+  stage.className = "mz-stage";
+  stage.append(...container.childNodes); // 移动节点而非重建，保留 Mermaid 已绑定的 click 回调
+  vp.append(stage);
+
+  let pz;
+  const { bar, setPct } = buildToolbar(() => pz, {
+    onFullscreen: (e) => openFullscreen(stage.querySelector("svg"), e.currentTarget),
+  });
+  container.append(vp, bar);
+  pz = new PanZoom(vp, stage, {
+    state: viewStates.get(index),
+    onChange: (st) => { viewStates.set(index, st); setPct(st.s); },
+  });
+}
+
+// ---------- 全屏浮层 ----------
+function openFullscreen(svg, trigger) {
+  const overlay = document.createElement("div");
+  overlay.className = "mz-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "全屏查看图表");
+
+  const wrap = document.createElement("div");
+  wrap.className = "mz-wrap";
+  const vp = document.createElement("div");
+  vp.className = "mz-viewport";
+  const stage = document.createElement("div");
+  stage.className = "mz-stage";
+  const clone = svg.cloneNode(true);
+  const vb = clone.viewBox.baseVal;
+  clone.style.maxWidth = "none";
+  if (vb && vb.width) { clone.setAttribute("width", vb.width); clone.setAttribute("height", vb.height); }
+  stage.append(clone);
+  vp.append(stage);
+
+  let pz;
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    trigger?.focus();
+  };
+  const { bar, setPct } = buildToolbar(() => pz, { onClose: close });
+  wrap.append(vp, bar);
+
+  const hint = document.createElement("div");
+  hint.className = "mz-hint";
+  hint.innerHTML = "滚轮 / 捏合缩放 · 拖拽平移 · <kbd>+</kbd> <kbd>-</kbd> 缩放 · <kbd>0</kbd> 100% · <kbd>F</kbd> 适应 · <kbd>←↑→↓</kbd> 平移 · <kbd>Esc</kbd> 关闭";
+  overlay.append(wrap, hint);
+  document.body.append(overlay);
+
+  pz = new PanZoom(vp, stage, { wheelNeedsModifier: false, onChange: (st) => setPct(st.s) });
+  pz.fit(false);
+  bar.querySelector("button")?.focus();
+
+  function onKey(e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const actions = {
+      "Escape": close,
+      "+": () => pz.zoomCenter(STEP), "=": () => pz.zoomCenter(STEP),
+      "-": () => pz.zoomCenter(1 / STEP), "_": () => pz.zoomCenter(1 / STEP),
+      "0": () => pz.reset(),
+      "f": () => pz.fit(), "F": () => pz.fit(),
+      "ArrowLeft": () => pz.pan(PAN_STEP, 0), "ArrowRight": () => pz.pan(-PAN_STEP, 0),
+      "ArrowUp": () => pz.pan(0, PAN_STEP), "ArrowDown": () => pz.pan(0, -PAN_STEP),
+    };
+    const fn = actions[e.key];
+    if (!fn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    fn();
+  }
+  document.addEventListener("keydown", onKey, true);
+}
+
+// ---------- 极简 Markdown 渲染（只为演示） ----------
+const editor = document.getElementById("editor");
+const preview = document.getElementById("preview");
+const enableToggle = document.getElementById("enable");
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function parse(src) {
+  const blocks = [];
+  const lines = src.split("\n");
+  let para = [];
+  const flush = () => { if (para.length) { blocks.push({ type: "p", text: para.join(" ") }); para = []; } };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const fence = line.match(/^```\s*mermaid\s*(\{.*\})?\s*$/);
+    if (fence) {
+      flush();
+      const code = [];
+      for (i++; i < lines.length && !/^```\s*$/.test(lines[i]); i++) code.push(lines[i]);
+      blocks.push({ type: "mermaid", code: code.join("\n"), zoom: !/zoom\s*=\s*false/.test(fence[1] || "") });
+    } else if (/^#{1,2} /.test(line)) {
+      flush();
+      blocks.push({ type: line.startsWith("## ") ? "h2" : "h1", text: line.replace(/^#+ /, "") });
+    } else if (line.trim() === "") {
+      flush();
+    } else {
+      para.push(line.trim());
+    }
+  }
+  flush();
+  return blocks;
+}
+
+const staging = document.createElement("div");
+staging.style.cssText = "position:absolute;left:-99999px;top:0;width:800px;visibility:hidden";
+document.body.append(staging);
+
+let renderSeq = 0;
+async function render() {
+  const seq = ++renderSeq;
+  staging.replaceChildren();
+  const blocks = parse(editor.value);
+  const nodes = [];
+  const mounts = [];
+  let mermaidIndex = 0;
+  for (const b of blocks) {
+    if (b.type !== "mermaid") {
+      const el = document.createElement(b.type);
+      el.innerHTML = esc(b.text).replace(/\{(zoom=false)\}/g, "<code>{$1}</code>");
+      nodes.push(el);
+      continue;
+    }
+    const index = mermaidIndex++;
+    const el = document.createElement("div");
+    try {
+      const { svg, bindFunctions } = await mermaid.render(`mz-${seq}-${index}`, b.code);
+      if (seq !== renderSeq) return;
+      el.innerHTML = svg;
+      el.className = "mermaid-static";
+      // bindFunctions 依赖 Mermaid 的全局状态，下一次 render 会清空，所以要在文档内立即绑定
+      staging.append(el);
+      bindFunctions?.(el);
+      mounts.push({ el, index, zoom: b.zoom && enableToggle.checked });
+    } catch (err) {
+      if (seq !== renderSeq) return;
+      el.className = "mermaid-error";
+      el.textContent = String(err?.message || err);
+    }
+    nodes.push(el);
+  }
+  preview.replaceChildren(...nodes);
+  for (const m of mounts) {
+    if (m.zoom) mountInline(m.el, m.index);
+  }
+}
+
+let debounce;
+editor.addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(render, 300); });
+enableToggle.addEventListener("change", render);
+render();
+</script>
+</body>
+</html>
