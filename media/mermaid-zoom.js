@@ -53,9 +53,9 @@
   var ICONS = {
     zoomOut: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>',
     zoomIn: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg>',
-    fit: '<svg viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
+    fit: '<svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.5"/><rect x="5.5" y="6" width="5" height="4" rx="0.5"/></svg>',
     fullscreen:
-      '<svg viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9"/></svg>',
+      '<svg viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>',
     close: '<svg viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></svg>',
   };
 
