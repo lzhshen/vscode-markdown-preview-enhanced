@@ -15,6 +15,7 @@ import {
   resolveActivePreviewSource,
 } from './current-preview-source';
 import { hashBlock, splitMarkdownBlocks } from './markdown-blocks';
+import { setMermaidScreenFullscreen } from './mermaid-zoom';
 import NotebooksManager from './notebooks-manager';
 import {
   getCrossnoteVersion,
@@ -698,6 +699,13 @@ export class PreviewProvider {
           (message) => {
             const command = message?.command;
             const args = message?.args;
+            if (command === 'setMermaidScreenFullscreen') {
+              setMermaidScreenFullscreen(
+                Array.isArray(args) && args[0],
+                previewPanel,
+              );
+              return;
+            }
             if (
               typeof command !== 'string' ||
               !WEBVIEW_MESSAGE_COMMANDS.has(command)
@@ -743,6 +751,7 @@ export class PreviewProvider {
             this.customEditorPanels.delete(previewPanel);
             this.previewToSourceUriMap.delete(previewPanel);
             this.destroyPreview(sourceUri, previewPanel);
+            setMermaidScreenFullscreen(false);
             this.destroyEngine(sourceUri);
             this.initializedPreviews.delete(previewPanel);
           },
@@ -804,6 +813,12 @@ export class PreviewProvider {
         head = `<link rel="stylesheet" href="${lightboxCssUri}"><script defer src="${lightboxJsUri}"></script>`;
       }
       if (getMPEConfig<boolean>('enableMermaidZoom') ?? true) {
+        // Reloading the page drops any open fullscreen overlay.
+        setMermaidScreenFullscreen(false);
+        const mermaidZoomFullscreen =
+          getMPEConfig<string>('mermaidZoomFullscreen') === 'panel'
+            ? 'panel'
+            : 'screen';
         const mermaidZoomCssUri = previewPanel.webview.asWebviewUri(
           vscode.Uri.joinPath(
             this.context.extensionUri,
@@ -818,7 +833,7 @@ export class PreviewProvider {
             'mermaid-zoom.js',
           ),
         );
-        head += `<link rel="stylesheet" href="${mermaidZoomCssUri}"><script defer src="${mermaidZoomJsUri}"></script>`;
+        head += `<link rel="stylesheet" href="${mermaidZoomCssUri}"><script src="${mermaidZoomJsUri}" data-fullscreen="${mermaidZoomFullscreen}"></script>`;
       }
 
       const html = await engine.generateHTMLTemplateForPreview({

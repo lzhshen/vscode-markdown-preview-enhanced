@@ -871,6 +871,19 @@
           "default": true,
           "type": "boolean"
         },
+        "markdown-preview-enhanced.mermaidZoomFullscreen": {
+          "description": "%markdown-preview-enhanced.mermaidZoomFullscreen.description%",
+          "default": "screen",
+          "type": "string",
+          "enum": [
+            "screen",
+            "panel"
+          ],
+          "enumDescriptions": [
+            "%markdown-preview-enhanced.mermaidZoomFullscreen.enumDescriptions.0%",
+            "%markdown-preview-enhanced.mermaidZoomFullscreen.enumDescriptions.1%"
+          ]
+        },
         "markdown-preview-enhanced.aiTranslationProvider": {
           "description": "%markdown-preview-enhanced.aiTranslationProvider.description%",
           "default": "",

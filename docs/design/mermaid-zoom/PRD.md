@@ -34,7 +34,7 @@
 | 7   | 行内容器尺寸        | 容器尺寸不变，超出部分裁掉，拖拽查看                                                                                                             |
 | 8   | 拖拽与点击          | 移动超过 4px 算拖拽，否则算点击，Mermaid 的 `click` 链接和回调照常生效；拖拽时禁用文字选择；双击空白处重置                                       |
 | 9   | 缩放范围 / 初始视图 | 10%–1000%；初始 = 当前 Mermaid 的显示效果（100%）；按钮每次 ×1.2                                                                                 |
-| 10  | 全屏形态            | 在预览 webview 内部铺满面板的浮层，`Esc` 关闭；不依赖 Fullscreen API                                                                             |
+| 10  | 全屏形态            | 默认占满整个屏幕：浮层铺满预览，同时扩展让 VS Code 进入禅模式并最大化预览分组；设置 `mermaidZoomFullscreen: "panel"` 时只铺满面板。`Esc` 关闭    |
 | 11  | 快捷键              | 仅在全屏内生效                                                                                                                                   |
 | 12  | 配置                | 总开关 `enableMermaidZoom`，默认开；单个图可以用 ` ```mermaid {data-zoom=false} ` 关闭（原定的 `{zoom=false}` 会被预览的 HTML 清洗器去掉，已改） |
 
@@ -56,6 +56,7 @@
 ### 4.2 全屏浮层
 
 - 铺满预览面板，四周是半透明遮罩，中间是图的画布；打开时自动"适应"。
+- 默认（`mermaidZoomFullscreen: "screen"`）同时占满整个屏幕：VS Code 进入禅模式（`zenMode.fullScreen` 默认开启，即系统全屏），有多个编辑器分组时再最大化预览所在分组；关闭浮层时依次恢复。窗口放大过程中图会持续重新适应，直到用户开始缩放或拖拽。
 - 全屏和行内的状态互相独立，关闭后行内视图不受影响。
 - 全屏里没有页面滚动冲突，所以**滚轮直接缩放**，不需要按修饰键。
 - 工具栏常驻显示，比行内多一个"关闭"按钮。底部有一行操作提示。
@@ -112,6 +113,9 @@
 - **实现中踩到的坑**：
   - 图里的链接默认可以被浏览器原生拖放，一旦触发 `dragstart` 就会取消指针事件，平移也随之中断，所以要在视口上阻止 `dragstart`。
   - 预览容器本身的背景是透明的，全屏画布要往上找第一个不透明的背景色，否则底下的预览内容会透上来。
+  - webview 不允许使用浏览器的 Fullscreen API（iframe 没有 `fullscreen` 权限），所以整屏全屏只能由扩展执行 VS Code 命令：浮层打开 / 关闭时向扩展发 `setMermaidScreenFullscreen` 消息，扩展在 `src/mermaid-zoom.ts` 里执行 `workbench.action.toggleZenMode`、`workbench.action.toggleMaximizeEditorGroup` 和 `workbench.action.exitZenMode`。
+  - `acquireVsCodeApi()` 每个页面只能调用一次，且预览自己已经调用了。脚本因此不加 `defer`，在预览脚本之前把它包装成"缓存第一次结果"的版本，两边共用同一个实例。
+  - 扩展读不到当前是否已经处于禅模式；如果打开全屏前已在禅模式，关闭时会一并退出。预览重新加载或面板关闭时扩展也会退出全屏，避免残留。
   - 原型里提到的 `bindFunctions` 问题不影响实际插件：crossnote 本来就没有调用 `bindFunctions`，只要包裹时移动原有节点即可。
 
 ## 8. 原型里我自行补的决策（如有异议请提出）

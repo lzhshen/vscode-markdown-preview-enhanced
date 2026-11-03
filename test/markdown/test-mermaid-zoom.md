@@ -10,7 +10,8 @@ Check:
 - Dragging pans the diagram. A press that moves less than 4px is still a click, and releasing a drag over the link node (`缩放层`) does not open the link.
 - Double-clicking empty space, or clicking the percentage, resets to 100%.
 - Editing a label in diagram 1 re-renders it with the same zoom and position.
-- Fullscreen: wheel zooms without a modifier; `+` `-` `0` `F` and the arrow keys work; Escape closes and returns focus to the fullscreen button.
+- Fullscreen: with `markdown-preview-enhanced.mermaidZoomFullscreen` at its default `"screen"`, VS Code enters zen mode (fullscreen) and the preview's group is maximized; the diagram refits as the window grows. Escape restores the layout. With `"panel"` only the preview panel is covered.
+- In fullscreen, wheel zooms without a modifier; `+` `-` `0` `F` and the arrow keys work; Escape closes and returns focus to the fullscreen button.
 - Diagram 3 (`{data-zoom=false}`) has no toolbar and does not zoom.
 
 ## 1. Large flowchart (with a link)

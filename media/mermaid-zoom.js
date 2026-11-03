@@ -4,9 +4,44 @@
 // CSS transform on the stage, so the SVG itself (and thus every export) is
 // untouched. Inline: Ctrl/Cmd + wheel or pinch zooms, drag pans, hover
 // toolbar. Fullscreen: an overlay over the preview panel with keyboard
-// shortcuts. View state is kept per diagram index across re-renders.
+// shortcuts; in "screen" mode the extension also puts VS Code into zen mode
+// and maximizes the preview's editor group, so the overlay fills the monitor.
+// View state is kept per diagram index across re-renders.
+//
+// Loaded without `defer` so the acquireVsCodeApi() wrapper below is in place
+// before the preview bundle claims the (single-use) API.
 (function () {
   'use strict';
+
+  var script = document.currentScript;
+  var fullscreenMode = (script && script.getAttribute('data-fullscreen')) || '';
+
+  // VS Code hands out the webview API only once per page and the preview
+  // already takes it, so memoize it to let both callers share one instance.
+  var vscodeApi = null;
+  var acquireApi = window.acquireVsCodeApi;
+  if (typeof acquireApi === 'function') {
+    window.acquireVsCodeApi = function () {
+      if (!vscodeApi) {
+        vscodeApi = acquireApi();
+      }
+      return vscodeApi;
+    };
+  }
+
+  function setScreenFullscreen(enter) {
+    if (fullscreenMode !== 'screen' || typeof acquireApi !== 'function') {
+      return;
+    }
+    try {
+      window.acquireVsCodeApi().postMessage({
+        command: 'setMermaidScreenFullscreen',
+        args: [enter],
+      });
+    } catch (e) {
+      // No host to talk to; the overlay still covers the preview panel.
+    }
+  }
 
   var MIN_SCALE = 0.1;
   var MAX_SCALE = 10;
@@ -390,6 +425,28 @@
 
   var activeOverlay = null;
 
+  // Leaving zen mode re-lays out the editor groups, and VS Code then focuses
+  // the preview container. Hand focus back to the trigger for a moment,
+  // unless the user has moved it somewhere meaningful.
+  function keepFocusWhileRestoring(trigger) {
+    var until = Date.now() + 2000;
+    function onFocus(e) {
+      if (Date.now() > until || !document.body.contains(trigger)) {
+        window.removeEventListener('focus', onFocus, true);
+        return;
+      }
+      var target = e.target;
+      if (
+        target === window ||
+        target === document.body ||
+        (target.classList && target.classList.contains('preview-container'))
+      ) {
+        trigger.focus();
+      }
+    }
+    window.addEventListener('focus', onFocus, true);
+  }
+
   function openFullscreen(svg, graph, trigger) {
     if (activeOverlay) {
       return;
@@ -416,12 +473,27 @@
     vp.style.backgroundColor = effectiveBackground(graph).css;
 
     var pz;
+    // Refit while the window grows into fullscreen, until the user takes over.
+    var autoFit = true;
+    var resizeObserver = new ResizeObserver(function () {
+      if (autoFit) {
+        pz.fit(false);
+      }
+    });
+    function stopAutoFit() {
+      autoFit = false;
+    }
     function close() {
       window.removeEventListener('keydown', onKey, true);
+      resizeObserver.disconnect();
       overlay.remove();
       activeOverlay = null;
+      setScreenFullscreen(false);
       if (trigger && document.body.contains(trigger)) {
         trigger.focus();
+        if (fullscreenMode === 'screen') {
+          keepFocusWhileRestoring(trigger);
+        }
       }
     }
     var toolbar = createToolbar(
@@ -447,6 +519,10 @@
       },
     });
     pz.fit(false);
+    resizeObserver.observe(vp);
+    overlay.addEventListener('pointerdown', stopAutoFit, true);
+    overlay.addEventListener('wheel', stopAutoFit, true);
+    setScreenFullscreen(true);
     var firstButton = toolbar.el.querySelector('button');
     if (firstButton) {
       firstButton.focus();
@@ -498,6 +574,7 @@
       }
       e.preventDefault();
       e.stopPropagation();
+      stopAutoFit();
       action();
     }
     window.addEventListener('keydown', onKey, true);

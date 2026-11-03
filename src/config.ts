@@ -31,6 +31,7 @@ type VSCodeMPEConfigKey =
   | 'configPath'
   | 'enableImageLightbox'
   | 'enableMermaidZoom'
+  | 'mermaidZoomFullscreen'
   | 'enablePreviewContextMenu'
   | 'enablePreviewScripts'
   | 'exportColorScheme'
